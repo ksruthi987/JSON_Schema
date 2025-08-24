@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dynamic JSON Playground</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body {
+  margin:0; padding:0; font-family:'Fira Code', monospace;
+  height:100vh; display:flex; justify-content:center; align-items:flex-start;
+  background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  color:#fff; padding:20px;
+}
+.container {
+  background: rgba(0,0,0,0.95); padding:30px; border-radius:25px; width:95%; max-width:1000px;
+  box-shadow:0 20px 50px rgba(0,255,255,0.3); display:flex; flex-direction:column; gap:20px;
+}
+h1 {
+  text-align:center; font-size:2.8em;
+  background: linear-gradient(90deg,#00f5a0,#00d9ff); 
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:0;
+}
+#editor {
+  width:100%; height:400px; padding:15px; border-radius:15px; font-size:16px; 
+  background: rgba(0,0,0,0.1); color:#00ffea; border:none; outline:none; resize:vertical;
+  box-shadow: inset 0 0 15px rgba(0,255,255,0.2); font-family:'Fira Code', monospace;
+}
+#editor.invalid { box-shadow: inset 0 0 15px rgba(255,77,77,0.8);}
+#editor.valid { box-shadow: inset 0 0 15px rgba(0,255,127,0.8);}
+button {
+  padding:12px 20px; font-weight:bold; border:none; border-radius:12px; cursor:pointer;
+  font-size:1em; background: linear-gradient(45deg,#00f5a0,#00d9ff); color:#000; transition:0.3s;
+}
+button:hover { transform:scale(1.05); background: linear-gradient(45deg,#ff6ec7,#ffdd00); }
+#console {
+  background: rgba(0,0,0,0.7); min-height:180px; border-radius:15px; padding:15px;
+  font-size:14px; overflow-y:auto; color:#fff; white-space:pre-wrap;
+}
+#confettiCanvas{ position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999;}
+</style>
+</head>
+<body>
+<canvas id="confettiCanvas"></canvas>
+<div class="container">
+<h1>Dynamic JSON Playground</h1>
+<textarea id="editor" placeholder='{ "name": "Alice", "age": 28, "email": "alice@example.com" }'></textarea>
+
+<!-- Buttons -->
+<div style="display:flex; flex-wrap:wrap; gap:10px;">
+<button onclick="validateJSON()">Validate</button>
+<button onclick="loadValid()">Load Valid</button>
+<button onclick="loadInvalid()">Load Invalid</button>
+<button onclick="formatJSON()">Format JSON</button>
+<button onclick="exportJSON()">Export JSON</button>
+</div>
+
+<!-- Update field form -->
+<div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+  <input type="text" id="fieldKey" placeholder="Field key (e.g., name or address.city)">
+  <input type="text" id="fieldValue" placeholder="New value">
+  <button onclick="updateField()">Update Field</button>
+</div>
+
+<!-- Delete field form -->
+<div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+  <input type="text" id="deleteKey" placeholder="Field key to delete (e.g., age or address.city)">
+  <button onclick="deleteField()">Delete Field</button>
+</div>
+
+<div id="console">Validation results appear here.</div>
+</div>
+
+<script>
+// Confetti animation
+const canvas=document.getElementById('confettiCanvas'); 
+const ctx=canvas.getContext('2d'); 
+canvas.width=window.innerWidth; canvas.height=window.innerHeight; 
+let confettiParticles=[];
+
+function triggerConfetti(){
+  confettiParticles=[];
+  for(let i=0;i<150;i++){
+    confettiParticles.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height-50,
+      r:Math.random()*6+4,
+      d:Math.random()*15+5,
+      color:`hsl(${Math.random()*360},100%,50%)`,
+      tilt:Math.random()*10-10,
+      tiltAngleIncrement:Math.random()*0.07+0.05,
+      tiltAngle:0
+    });
+  }
+  requestAnimationFrame(drawConfetti);
+  setTimeout(()=>{confettiParticles=[]; ctx.clearRect(0,0,canvas.width,canvas.height);},3000);
+}
+
+function drawConfetti(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  confettiParticles.forEach(p=>{
+    p.tiltAngle+=p.tiltAngleIncrement;
+    p.y+=Math.cos(p.d)+1+p.r/2;
+    p.x+=Math.sin(p.d);
+    p.tilt=Math.sin(p.tiltAngle)*15;
+    ctx.beginPath();
+    ctx.lineWidth=p.r;
+    ctx.strokeStyle=p.color;
+    ctx.moveTo(p.x+p.tilt+p.r/2,p.y);
+    ctx.lineTo(p.x+p.tilt,p.y+p.tilt+p.r/2);
+    ctx.stroke();
+  });
+  if(confettiParticles.length>0) requestAnimationFrame(drawConfetti);
+}
+
+window.addEventListener('resize',()=>{ canvas.width=window.innerWidth; canvas.height=window.innerHeight; });
+
+// Load JSON examples
+function loadValid(){ 
+  document.getElementById('editor').value = JSON.stringify({
+    name:"Alice",
+    age:28,
+    gender:"female",
+    email:"alice@example.com",
+    address: { city:"NY", zip:"10001" }
+  },null,2); 
+}
+
+function loadInvalid(){ 
+  document.getElementById('editor').value = '{name:Alice, age:150, gender:"other", email:"bademail", address:{city:"N", zip:"abc"}}'; 
+}
+
+// Validation function
+function validateJSON() {
+    const editor = document.getElementById('editor');
+    const consoleDiv = document.getElementById('console');
+    consoleDiv.innerHTML = '';
+    editor.classList.remove('invalid', 'valid');
+
+    let json;
+    try {
+        json = JSON.parse(editor.value);
+    } catch (e) {
+        consoleDiv.innerHTML = '❌ Invalid JSON syntax!\n' + e.message;
+        editor.classList.add('invalid');
+        return;
+    }
+
+    let errors = [];
+
+    if (!json.name || typeof json.name !== 'string' || json.name.trim().length < 2) {
+        errors.push("name should have at least 2 characters");
+    }
+
+    if (!json.age || typeof json.age !== 'number' || json.age < 1 || json.age > 120) {
+        errors.push("age should not exceed 120");
+    }
+
+    if (json.gender && !["male", "female"].includes(json.gender.toLowerCase())) {
+        errors.push("gender should be one of male, female");
+    }
+
+    if (json.email && !/^[\w.-]+@[\w.-]+\.\w+$/.test(json.email)) {
+        errors.push("email does not match pattern ^[\\w.-]+@[\\w.-]+\\.\\w+$");
+    }
+
+    if (json.address) {
+        if (json.address.city && json.address.city.trim().length < 2) {
+            errors.push("address.city should have at least 2 characters");
+        }
+        if (json.address.zip && !/^\d{5}$/.test(json.address.zip)) {
+            errors.push("address.zip does not match pattern ^\\d{5}$");
+        }
+    }
+
+    if (errors.length === 0) {
+        consoleDiv.innerHTML = '✅ JSON is valid!';
+        editor.classList.add('valid');
+        triggerConfetti();
+    } else {
+        consoleDiv.innerHTML = "Validation Errors:\n" + errors.join("\n");
+        editor.classList.add('invalid');
+    }
+}
+
+// Format JSON
+function formatJSON(){
+  const editor=document.getElementById('editor'); 
+  try{ const json=JSON.parse(editor.value); editor.value=JSON.stringify(json,null,2); }
+  catch(e){ alert('Invalid JSON, cannot format.'); }
+}
+
+// Export JSON
+function exportJSON(){
+  const editor=document.getElementById('editor');
+  const blob=new Blob([editor.value],{type:"application/json"});
+  const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download='data.json'; link.click();
+}
+
+// Update any field with limitations
+function updateField() {
+    const editor = document.getElementById('editor');
+    let json;
+
+    try {
+        json = JSON.parse(editor.value);
+    } catch (e) {
+        alert("Invalid JSON. Cannot update field.");
+        return;
+    }
+
+    const keyInput = document.getElementById('fieldKey').value.trim();
+    const valueInput = document.getElementById('fieldValue').value.trim();
+
+    if (!keyInput) {
+        alert("Please enter a key.");
+        return;
+    }
+
+    const keys = keyInput.split('.');
+    let temp = json;
+    for (let i = 0; i < keys.length - 1; i++) {
+        if (!temp[keys[i]]) temp[keys[i]] = {};
+        temp = temp[keys[i]];
+    }
+
+    const lastKey = keys[keys.length - 1];
+    let newValue = valueInput;
+    if (!isNaN(valueInput) && valueInput !== "") newValue = Number(valueInput);
+
+    // Limitations
+    if (lastKey === "name" && typeof newValue === "string" && newValue.trim().length < 2) {
+        alert("Name must have at least 2 characters.");
+        return;
+    }
+    if (lastKey === "age" && (newValue < 1 || newValue > 120)) {
+        alert("Age must be between 1 and 120.");
+        return;
+    }
+    if (lastKey === "gender" && !["male","female"].includes(String(newValue).toLowerCase())) {
+        alert("Gender must be male or female.");
+        return;
+    }
+    if (lastKey === "zip" && !/^\d{5}$/.test(String(newValue))) {
+        alert("ZIP code must be 5 digits.");
+        return;
+    }
+    if (Object.keys(json).length >= 10 && !json.hasOwnProperty(lastKey)) {
+        alert("Maximum of 10 root-level fields allowed.");
+        return;
+    }
+
+    temp[lastKey] = newValue;
+    editor.value = JSON.stringify(json, null, 2);
+    validateJSON();
+}
+
+// Delete any field
+function deleteField() {
+    const editor = document.getElementById('editor');
+    let json;
+
+    try {
+        json = JSON.parse(editor.value);
+    } catch (e) {
+        alert("Invalid JSON. Cannot delete field.");
+        return;
+    }
+
+    const keyInput = document.getElementById('deleteKey').value.trim();
+    if (!keyInput) {
+        alert("Please enter a key to delete.");
+        return;
+    }
+
+    const keys = keyInput.split('.');
+    let temp = json;
+    for (let i = 0; i < keys.length - 1; i++) {
+        if (!temp[keys[i]]) {
+            alert("Field does not exist.");
+            return;
+        }
+        temp = temp[keys[i]];
+    }
+
+    const lastKey = keys[keys.length - 1];
+    if (temp.hasOwnProperty(lastKey)) {
+        delete temp[lastKey];
+        editor.value = JSON.stringify(json, null, 2);
+        validateJSON();
+    } else {
+        alert("Field does not exist.");
+    }
+}
+</script>
+</body>
+</html>
