@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f6f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 500px;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+      padding: 16px;
+      font-size: 20px;
+    }
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="email"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+         background-color: #218838;
+    }
+
+    tr:last-child td {
+      text-align: center;
+      border-bottom: none;
+    }
+  </style>
+
+</head>
+<body>
+    <form id="user-form">
+    <table style="border: 1;padding: auto;" >
+        <tr>
+            <th colspan="2" style="text-align: center;">Application Form</th>
+        </tr>
+        <tr>
+            <td>Name Of The Student</td>
+            <td><input type="text" name="nameOfTheStudent"></td>
+        </tr>
+        <tr>
+            <td>Registration No</td>
+            <td><input type="text" name="registrationNo"></td>
+        </tr>
+        <tr>
+            <td>Father Name</td>
+            <td><input type="text" name="fatherName"></td>
+        </tr>
+        <tr>
+            <td>Name Of The Institute</td>
+            <td><input type="text" name="nameOfTheInstitute"></td>
+        </tr>
+        <tr>
+            <td>Date Of Birth</td>
+            <td><input type="date" name="dateOfBirth"></td>
+        </tr>
+        <tr>
+            <td>Department</td>
+            <td><input type="text" name="department"></td>
+        </tr>
+        <tr>
+            <td>Mobile no</td>
+            <td><input type="number" name="mobileNo"></td>
+        </tr>
+        <tr>
+            <td>Email</td>
+            <td><input type="email" name="email"></td>
+        </tr>
+        <tr>
+            <td>Address</td>
+            <td><input type="text" name="address"></td>
+        </tr>
+        <tr>
+            <td colspan="2"><button type="submit"><b>Submit</b></button></td>
+        </tr>
+    </table>
+    </form>
+    <script>
+  document.getElementById("user-form").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const formData = {
+      nameOfTheStudent: document.querySelector("[name='nameOfTheStudent']").value,
+      registrationNo: parseInt(document.querySelector("[name='registrationNo']").value),
+      fatherName: document.querySelector("[name='fatherName']").value,
+      nameOfTheInstitute: document.querySelector("[name='nameOfTheInstitute']").value,
+      department: document.querySelector("[name='department']").value,
+      mobileNo: document.querySelector("[name='mobileNo']").value,
+      email: document.querySelector("[name='email']").value,
+      address: document.querySelector("[name='address']").value,
+      dateOfBirth: document.querySelector("[name='dateOfBirth']").value // Format: "YYYY-MM-DD"
+
+      // Add other fields similarly
+    };
+
+    fetch("http://localhost:8081/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert("Submitted successfully!");
+      console.log(data);
+    })
+    .catch(error => console.error("Error:", error));
+  });
+</script>
+</body>
+</html>
